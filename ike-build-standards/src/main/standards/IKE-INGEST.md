@@ -85,51 +85,48 @@ convert it to AsciiDoc first, then run the tool.
 
 #### Invocation
 
-The tool accepts individual files, multiple files, or entire
-directories. When given a directory it walks recursively for `*.adoc`
-files, skipping `target/` directories. AsciidoctorJ is initialized
-once and reused across all files, so batch mode is significantly
-faster than invoking per file.
-
-**Batch — entire directory (recommended):**
-
-```bash
-# From the ike-docs reactor root:
-mvn exec:java -pl semantic-linebreak \
-  -Dexec.args="path/to/src/docs/asciidoc"
-```
-
-**Batch — multiple files:**
-
-```bash
-mvn exec:java -pl semantic-linebreak \
-  -Dexec.args="chapter1.adoc chapter2.adoc chapter3.adoc"
-```
+`semantic-linebreak` is a Maven plugin. Run it from inside a Maven
+project — the goal requires one and fails with
+`Goal requires a project to execute but there is no POM in this
+directory` when invoked standalone.
 
 **Single file:**
 
 ```bash
-mvn exec:java -pl semantic-linebreak \
-  -Dexec.args="path/to/source.adoc"
+mvn network.ike.docs:semantic-linebreak:88:reformat \
+  -Dfile=src/docs/asciidoc/topics/arch/coord-versioning.adoc
 ```
 
-**Dry run — preview to stdout without modifying:**
+**Batch — entire directory (recommended):** the `file` parameter takes
+a directory as well as a file. Given one it walks recursively for
+`*.adoc`, skipping `target/`. AsciidoctorJ is initialized once and
+reused across all files, so batch mode is significantly faster than
+invoking per file.
 
 ```bash
-mvn exec:java -pl semantic-linebreak \
-  -Dexec.args="-n path/to/source.adoc"
+mvn network.ike.docs:semantic-linebreak:88:reformat \
+  -Dfile=src/docs/asciidoc
 ```
 
-**Direct Java invocation (outside reactor):**
+**Dry run — preview without modifying:**
 
 ```bash
-java -jar semantic-linebreak/target/semantic-linebreak-*.jar \
-  path/to/src/docs/asciidoc
+mvn network.ike.docs:semantic-linebreak:88:reformat \
+  -Dfile=src/docs/asciidoc -DdryRun=true
 ```
 
-All invocations modify files in-place by default. Use `-n` (dry run)
-to preview changes to stdout, or `-o <file>` to write to a different
-file (single-file mode only).
+Where the project already declares the plugin, the goal prefix is
+enough: `mvn slb:reformat -Dfile=<path>`.
+
+The plugin requires **Java 25**. On an older JVM Maven refuses it with
+`has unmet prerequisites: Required Java version 25 is not met`; set
+`JAVA_HOME` to a 25 or later JDK.
+
+Other parameters: `minLineLength`, `maxLineLength`, `clauseBreak` and
+`clauseBreakThreshold` tune where breaks fall. The defaults are correct
+for IKE prose; change them only with a reason.
+
+Runs modify files in place unless `dryRun` is set.
 
 #### Why normalize before decomposition
 

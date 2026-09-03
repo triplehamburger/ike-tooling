@@ -126,11 +126,17 @@ discrepancy to adjudicate — it is out of date, and regenerating it is the fix.
 | `related`      | `:topic-related:`, split on commas.                                      |
 | `supersedes`   | `:topic-supersedes:`                                                      |
 | `notes`        | `:topic-notes:`                                                           |
+| `scope-note`   | `:topic-scope-note:`                                                      |
 | `dependencies` | The `xref:` targets in the fragment body, in document order, excluding self-references. The field is *defined* as the topic's cross-references, so it is read from them rather than restated. |
 
 A topic file is any `.adoc` carrying a literal anchor immediately followed by a level-1
 heading. This is the discriminator rather than a directory convention: topics and assemblies
 routinely sit in the same directory, and an assembly has no such anchor.
+
+The attribute block runs from the line after the heading to the first blank line. A value
+folded across lines with a trailing `\` continues to the line that does not end in one, and
+those continuation lines are part of the block. Reading stops at the blank line: attributes
+set later in the body are not topic metadata.
 
 Topic order within a domain is reading order — first appearance across the assemblies' include
 sequences — not filename order. Topics belonging to no assembly sort last, by path.
@@ -168,7 +174,14 @@ computed.
 ## Field Definitions: Assembly Entry
 
 Like topic entries, assembly entries are generated. An assembly is any `.adoc` that carries no
-topic anchor and `include::`s at least one topic file.
+topic anchor and `include::`s at least one topic file — with one exclusion.
+
+**The topic library's all-topics preview is not an assembly.** `index.adoc` in the topic
+library module (`IKE-INGEST.md` Step 5) includes every topic so that the library renders for
+review and so cross-topic `xref:` targets resolve in the topics build. It satisfies the
+definition above and must still be excluded: it is a rendering surface, not a published
+document. Including it would also make validation rule 5 vacuous, since every topic appears in
+the preview by construction and would therefore always be "in an assembly."
 
 | Field          | Source                                                                   |
 |----------------|--------------------------------------------------------------------------|

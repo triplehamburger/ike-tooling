@@ -18,6 +18,10 @@ Every topic `.adoc` file must follow this structure:
 :topic-type: concept
 :topic-status: draft
 :topic-keywords: versioning, coordinates, STAMP, temporal
+:topic-summary: Describes the coordinate-based versioning pattern where each \
+  component version is identified by module, path and temporal coordinates \
+  within the STAMP model.
+:topic-provenance: ingested
 :topic-scope-note: Covers versioning from the architecture perspective. \
   For version management procedures, see ops-version-migration.
 
@@ -113,24 +117,61 @@ labels for empty sections or as organizational placeholders.
 
 ### Include in Fragments
 
+Every fragment carries these:
+
 | Attribute            | Purpose                          | Example                                |
 |----------------------|----------------------------------|----------------------------------------|
 | `:topic-type:`       | concept, task, reference, or dialog | `concept`                           |
 | `:topic-status:`     | Lifecycle status                 | `published`                            |
 | `:topic-keywords:`   | Comma-separated keyword list     | `versioning, coordinates, STAMP`       |
-| `:topic-scope-note:` | Optional. Clarifies this topic's angle when it intentionally overlaps with a related topic. References the related topic-id. | `Covers classifiers from the authoring perspective. For classifier architecture, see arch-dl-classifier.` |
+| `:topic-summary:`    | 1–3 sentences, 150–400 characters, indicative mood. The primary search target and the signal by which content overlap is detected across sessions. Authored per the summary guidelines in `IKE-TOPIC-REGISTRY.md`; fold long values with a trailing `\`. | `Describes the coordinate-based versioning pattern where each component version is identified by module, path and temporal coordinates within the STAMP model.` |
+| `:topic-provenance:` | `authored`, `ingested`, or `external` | `ingested`                        |
+
+And these when they apply:
+
+| Attribute            | Purpose                          | Example                                |
+|----------------------|----------------------------------|----------------------------------------|
+| `:topic-related:`    | Comma-separated topic ids covering similar subject matter from a different angle. Must be reciprocated: if A lists B, B lists A. | `arch-dl-classifier, term-dl-axioms` |
+| `:topic-scope-note:` | **Required whenever `:topic-related:` is non-empty.** States why the overlap is deliberate and what this topic's angle is. | `Covers classifiers from the authoring perspective. For classifier architecture, see arch-dl-classifier.` |
+| `:topic-supersedes:` | Topic id this topic replaces. Set on the replacement, not the deprecated topic. | `arch-versioning-legacy`               |
+| `:topic-notes:`      | Free-text note for authors and tooling. Use for exceptions — a size-bound justification, an unresolved cross-reference. | `Exceeds 5000 characters — indivisible reference table.` |
+
+### Why these live in the fragment
+
+`:topic-summary:`, `:topic-related:`, `:topic-supersedes:` and `:topic-notes:` are the fields
+that cannot be recovered by reading the topic's content. A summary describes the topic, but the
+other three are decisions somebody made *about* it — which topic it overlaps, which it retires,
+which rule it is exempt from. No parser reconstructs a decision from the prose it was made
+about, so the fragment has to state them.
+
+Everything a parser *can* recover is not authored here: id, title, file path, domain, and
+`dependencies` (defined as the topics this one cross-references, so read the `xref:` macros).
+See `IKE-TOPIC-REGISTRY.md` for the full derivation table.
+
+`:topic-summary:` may be derived from the topic's opening paragraph, which is already required
+to be self-contained and context-setting. An authored value always wins. Author one when the
+opening paragraph reads well as prose but works poorly as a search target — and note that an
+authored summary identical to what would be derived is a line that can be deleted.
+
+`:topic-type:` stays authored. Structure hints at it — `.Procedure` blocks suggest a task, a
+table-dominant body suggests a reference — but a concept topic containing one table is still a
+concept topic, and no heuristic distinguishes them. It is one line from a closed set of four
+values.
 
 ### External Source Attributes (ext/ domain only)
 
 These attributes are required on all topics in the `ext/` domain and must not appear on
-authored topics. See `IKE-INGEST.md` § "External Source Ingestion" for the full workflow,
-including the mandatory confirmation step and content handling matrix.
+authored topics. They record *rights*, which is distinct from origin: `:topic-provenance:`
+applies to every topic and says where content came from, while these two say what may be done
+with it. See `IKE-INGEST.md` § "External Source Ingestion" for the full workflow, including the
+mandatory confirmation step and content handling matrix.
 
 | Attribute              | Purpose                                    | Example                                               |
 |------------------------|--------------------------------------------|-------------------------------------------------------|
-| `:topic-provenance:`   | Always `external` for ingested sources     | `external`                                            |
 | `:topic-citation:`     | Full bibliographic citation                | `Hatchett PL. Open Questions PLH Answers. 2026-03-11. Unpublished memorandum.` |
 | `:topic-license:`      | Rights/permissions note                    | `Internal use only — not for publication.`            |
+
+On an `ext/` topic, `:topic-provenance:` is always `external`.
 
 ### Never Include in Fragments
 

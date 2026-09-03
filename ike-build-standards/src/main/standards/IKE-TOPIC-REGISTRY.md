@@ -2,11 +2,15 @@
 
 ## Purpose
 
-The `topic-registry.yaml` file is the authoritative catalog of all topics in a topic library
-module. It serves three functions:
+The `topic-registry.yaml` file is the catalog of all topics in a topic library module. It is
+**generated from the topic fragments**, not authored: the fragments are the source of every
+value in it, and it is rebuilt from them rather than edited. See § "The registry is derived,
+not authored."
 
-1. **Build validation**: CI checks that every `.adoc` file under `topics/` has a registry
-   entry and every registry entry resolves to a file.
+It serves three functions:
+
+1. **Corpus view**: A single file giving the whole corpus map — what exists, its status, and
+   how it is assembled — without opening several hundred fragments.
 2. **Assembly planning**: Authors and tooling use the registry to understand what content
    exists, its status, and its dependencies when constructing assembly documents.
 3. **Claude navigation**: The registry provides Claude (chat or Claude Code) with a searchable
@@ -44,7 +48,6 @@ domains:
         type: concept
         keywords: [architecture, overview, IKE, layers]
         status: published
-        char-count: 2340
         dependencies: []
         related: []
         summary: >
@@ -58,7 +61,6 @@ domains:
         type: concept
         keywords: [classifier, reasoning, EL++, inference]
         status: published
-        char-count: 2890
         dependencies: [arch-overview]
         related: [term-dl-axioms]  # covers similar ground from architecture angle
         summary: >
@@ -98,45 +100,99 @@ assemblies:                        # catalog of assembly documents
         topic-refs: [ref-coordinate-fields]
 ```
 
-## Field Definitions: Topic Entry
+## The registry is derived, not authored
 
-### Required Fields
+**No field of a topic entry is written by hand.** Every one is either read from the fragment's
+attribute block or computed from the fragment's content, and the registry is regenerated from
+the corpus rather than edited. The fragment is the authored source; the registry is a
+projection of it.
 
-| Field          | Type       | Description                                                  |
-|----------------|------------|--------------------------------------------------------------|
-| `id`           | string     | Unique topic identifier. Format: `{domain-prefix}-{slug}`, lowercase kebab-case. Immutable once assigned. |
-| `file`         | string     | Relative path from the `src/docs/asciidoc/` root to the `.adoc` file. |
-| `title`        | string     | Human-readable title. Should match the level-1 heading in the `.adoc` file. |
-| `type`         | enum       | One of: `concept`, `task`, `reference`, `dialog`.            |
-| `keywords`     | string[]   | 3–8 searchable terms. Include synonyms and abbreviations that a searcher might use. Do not repeat words from the title. |
-| `status`       | enum       | One of: `draft`, `proposed`, `review`, `published`, `deprecated`. |
-| `summary`      | string     | 1–2 sentences describing the topic's content. Written in indicative mood ("Describes the..." not "This topic describes..."). Must be useful for search — include key terms not covered by `keywords`. |
+This is what lets a fragment be located, catalogued and indexed from the file alone even when
+the registry is missing, stale or wrong. A registry that disagrees with the corpus is not a
+discrepancy to adjudicate — it is out of date, and regenerating it is the fix.
 
-### Optional Fields
+### Where each topic field comes from
 
-| Field          | Type       | Description                                                  |
-|----------------|------------|--------------------------------------------------------------|
-| `char-count`   | integer    | Character count of the `.adoc` content (excluding attribute block). Updated on each decomposition pass. Used for granularity validation. |
-| `dependencies` | string[]   | List of `topic-id` values that this topic cross-references via `xref:`. Represents "this topic links to" relationships. |
-| `related`      | string[]   | List of `topic-id` values that cover similar subject matter from a different angle. Represents "this topic overlaps with" relationships. Used for redundancy management — when revising one topic, check its `related` topics for consistency. Distinct from `dependencies`, which are structural cross-references. |
-| `supersedes`   | string     | `topic-id` of a deprecated topic that this topic replaces.   |
-| `notes`        | string     | Free-text notes for authors and Claude. Use for documenting exceptions (e.g., "Exceeds 5000 chars — indivisible reference table"). |
+| Field          | Source                                                                    |
+|----------------|---------------------------------------------------------------------------|
+| `id`           | The fragment's literal anchor, `[[arch-coord-versioning]]`.               |
+| `file`         | The fragment's path, relative to the `src/docs/asciidoc/` root.          |
+| `title`        | The fragment's level-1 heading.                                          |
+| `domain`       | The topic id's prefix.                                                    |
+| `type`         | `:topic-type:`                                                            |
+| `status`       | `:topic-status:`                                                          |
+| `keywords`     | `:topic-keywords:`, split on commas.                                     |
+| `summary`      | `:topic-summary:`, or the fragment's opening paragraph when no attribute is present. |
+| `related`      | `:topic-related:`, split on commas.                                      |
+| `supersedes`   | `:topic-supersedes:`                                                      |
+| `notes`        | `:topic-notes:`                                                           |
+| `dependencies` | The `xref:` targets in the fragment body, in document order, excluding self-references. The field is *defined* as the topic's cross-references, so it is read from them rather than restated. |
+
+A topic file is any `.adoc` carrying a literal anchor immediately followed by a level-1
+heading. This is the discriminator rather than a directory convention: topics and assemblies
+routinely sit in the same directory, and an assembly has no such anchor.
+
+Topic order within a domain is reading order — first appearance across the assemblies' include
+sequences — not filename order. Topics belonging to no assembly sort last, by path.
+
+### `char-count` is not a registry field
+
+It was removed. It cached a number `wc` computes in a millisecond, it was stale the moment
+anyone edited the topic, and the standard never defined it precisely enough to reproduce.
+Granularity bounds are checked by measuring the file at the time of the check, which is both
+simpler and more accurate than consulting a copy recorded at the last decomposition pass.
+
+### Values that no fragment can supply
+
+Four values describe *collections* rather than any single topic, so no fragment states them.
+They are authored in a small side file beside the registry, `topic-registry-meta.yaml`, and
+merged in during generation:
+
+```yaml
+registry-version: "1.1"
+domains:
+  arch:
+    title: "System Architecture"
+    description: >
+      Topics covering system architecture, design patterns, and
+      infrastructure decisions.
+assemblies:
+  versioning-guide:
+    description: "Targeted guide for version management."
+```
+
+This file scales with the number of domains and assemblies, not with the number of topics.
+`generated` is the generation date and `topic-count` is the count of entries; both are
+computed.
 
 ## Field Definitions: Assembly Entry
 
-| Field          | Type       | Description                                                  |
-|----------------|------------|--------------------------------------------------------------|
-| `id`           | string     | Unique assembly identifier. Lowercase kebab-case.            |
-| `file`         | string     | Relative path to the assembly `.adoc` file.                  |
-| `title`        | string     | Human-readable title of the assembled document.              |
-| `description`  | string     | Brief description of the assembly's purpose and audience.    |
-| `sections`     | section[]  | Hierarchical structure of the assembly (see below).          |
+Like topic entries, assembly entries are generated. An assembly is any `.adoc` that carries no
+topic anchor and `include::`s at least one topic file.
+
+| Field          | Source                                                                   |
+|----------------|--------------------------------------------------------------------------|
+| `id`           | The assembly file's basename.                                            |
+| `file`         | The assembly file's path, relative to the `src/docs/asciidoc/` root.    |
+| `title`        | The assembly document's level-1 heading.                                 |
+| `description`  | `topic-registry-meta.yaml` — the one assembly value nothing derives.    |
+| `sections`     | The assembly document's own heading structure and `include::` order.     |
 
 ### Assembly Section Structure
 
 Assembly entries use nested `sections` to capture the heading hierarchy of the assembled
 document. This gives Claude and authors structural context — not just which topics are
 included, but where they sit in the document hierarchy.
+
+**Sections are read from the assembly document, never authored into the registry.** Each
+heading becomes a section; each `include::` of a topic file contributes that topic's id to the
+enclosing section's `topic-refs`, in document order. Headings that include no topics are
+omitted.
+
+This closes a gap that no validation rule could: when `sections` was authored separately, a
+registry whose structure had drifted from the assembly it described passed every check, because
+every check compared the registry against itself. Reading the structure from the document makes
+the drift unrepresentable.
 
 | Field          | Type       | Description                                                  |
 |----------------|------------|--------------------------------------------------------------|
@@ -232,39 +288,56 @@ relationship between coordinates and the version graph used for dependency resol
 
 ## Maintenance Rules
 
-### When to Update
+### When to Regenerate
 
-Update the registry whenever:
+Regenerate the registry whenever the corpus changes: a topic created, modified, split, merged
+or deprecated; a topic's attributes edited; an assembly's `include::` list or heading structure
+changed.
 
-- A topic is created, modified, split, merged, or deprecated.
-- A topic's status changes.
-- An assembly's topic list changes.
-- A decomposition session produces new topics.
+Never hand-edit `topic-registry.yaml`. An edit there is either something that belongs in a
+fragment attribute — in which case put it there and regenerate — or something that belongs in
+`topic-registry-meta.yaml`. A hand edit to the registry itself is erased by the next
+regeneration, and until then it makes the registry disagree with the corpus it describes.
 
-### Who Updates
+### Who Regenerates
 
-- **Claude (chat or Claude Code)**: Always produces registry YAML fragments as part of
-  decomposition or topic creation. Fragments are reviewed and merged by the author.
-- **Authors**: Responsible for final merge and commit. The registry is a source-controlled
-  artifact.
+- **Claude (chat or Claude Code)**: Edits fragments, then regenerates the registry per this
+  standard as the last step of any topic work.
+- **Authors**: Review the fragment diff. The registry diff is a consequence of it, and should
+  contain nothing that the fragment diff does not explain.
 
 ### Validation
 
-The CI build should enforce:
+Generation removes a whole class of check. A registry produced from the corpus cannot hold a
+`file` that does not resolve, a `topic-count` that disagrees with its entries, a duplicate
+`topic-id`, or an entry for a file that is not there — none of those states is reachable. What
+remains are the checks over *authored* values, which generation carries through faithfully and
+therefore cannot correct:
 
-1. Every `.adoc` file under `topics/` has a corresponding registry entry with a matching `id`
-   and `file` path.
-2. Every registry entry's `file` path resolves to an existing `.adoc` file.
-3. `topic-count` matches the actual count of topic entries.
-4. All `dependencies` reference valid `topic-id` values.
-5. All `related` entries reference valid `topic-id` values, and the relationship is
-   bidirectional — if topic A lists topic B as `related`, topic B must list topic A.
-6. All `topic-refs` in assembly sections reference valid `topic-id` values.
-7. No duplicate `topic-id` values exist.
-8. Every published topic appears in at least one assembly's `sections`.
+1. All `dependencies` reference valid `topic-id` values. A dangling one means a fragment
+   contains an `xref:` to a topic that does not exist — a broken link in the corpus, surfaced
+   here.
+2. All `related` entries reference valid `topic-id` values, and the relationship is
+   reciprocated: if topic A lists topic B as `related`, topic B must list topic A.
+3. Every topic with a non-empty `related` also carries a `scope-note`.
+4. All `topic-refs` in assembly sections reference valid `topic-id` values. Since sections are
+   read from the assembly document, a violation means the assembly `include::`s a file whose
+   anchor names no known topic.
+5. Every published topic outside the `ext` domain appears in at least one assembly's
+   `sections`.
+6. No `ext` topic appears in any assembly's `sections`, and no `ext` topic has
+   `status: published`.
 
-A Maven Enforcer rule or a lightweight validation script invoked during `validate` phase can
-perform these checks.
+Rules 5 and 6 replace the former single rule "every published topic appears in at least one
+assembly." As written, that rule contradicted the assembly exclusion rule in `IKE-INGEST.md`:
+external topics must never appear in an assembly, so a published `ext-*` topic could satisfy
+neither requirement. External topics are capped at `status: review`, so a published one is
+itself the defect — rule 6 reports it as that rather than reporting a phantom missing
+assembly.
+
+The regeneration itself is the strongest check available: regenerate into a temporary location
+and compare against the committed registry. Any difference is either a stale registry or a
+fragment edited without regenerating, and in both cases the generated output is correct.
 
 ## Generated Artifact: term-index.yaml
 
@@ -326,6 +399,8 @@ matching topics and report their `topic-id`, `title`, and `summary`.
 
 After any topic creation or modification:
 
-> Provide the updated registry YAML fragment for the topics we just created.
+> Regenerate the registry.
 
-Claude will produce a YAML block ready for merge into `topic-registry.yaml`.
+Claude rebuilds `topic-registry.yaml` from the fragments per § "The registry is derived, not
+authored," merging in `topic-registry-meta.yaml`. Do not ask for a YAML fragment to paste into
+the registry by hand — that reintroduces the second authored copy this design removes.

@@ -85,51 +85,48 @@ convert it to AsciiDoc first, then run the tool.
 
 #### Invocation
 
-The tool accepts individual files, multiple files, or entire
-directories. When given a directory it walks recursively for `*.adoc`
-files, skipping `target/` directories. AsciidoctorJ is initialized
-once and reused across all files, so batch mode is significantly
-faster than invoking per file.
-
-**Batch — entire directory (recommended):**
-
-```bash
-# From the ike-docs reactor root:
-mvn exec:java -pl semantic-linebreak \
-  -Dexec.args="path/to/src/docs/asciidoc"
-```
-
-**Batch — multiple files:**
-
-```bash
-mvn exec:java -pl semantic-linebreak \
-  -Dexec.args="chapter1.adoc chapter2.adoc chapter3.adoc"
-```
+`semantic-linebreak` is a Maven plugin. Run it from inside a Maven
+project — the goal requires one and fails with
+`Goal requires a project to execute but there is no POM in this
+directory` when invoked standalone.
 
 **Single file:**
 
 ```bash
-mvn exec:java -pl semantic-linebreak \
-  -Dexec.args="path/to/source.adoc"
+mvn network.ike.docs:semantic-linebreak:88:reformat \
+  -Dfile=src/docs/asciidoc/topics/arch/coord-versioning.adoc
 ```
 
-**Dry run — preview to stdout without modifying:**
+**Batch — entire directory (recommended):** the `file` parameter takes
+a directory as well as a file. Given one it walks recursively for
+`*.adoc`, skipping `target/`. AsciidoctorJ is initialized once and
+reused across all files, so batch mode is significantly faster than
+invoking per file.
 
 ```bash
-mvn exec:java -pl semantic-linebreak \
-  -Dexec.args="-n path/to/source.adoc"
+mvn network.ike.docs:semantic-linebreak:88:reformat \
+  -Dfile=src/docs/asciidoc
 ```
 
-**Direct Java invocation (outside reactor):**
+**Dry run — preview without modifying:**
 
 ```bash
-java -jar semantic-linebreak/target/semantic-linebreak-*.jar \
-  path/to/src/docs/asciidoc
+mvn network.ike.docs:semantic-linebreak:88:reformat \
+  -Dfile=src/docs/asciidoc -DdryRun=true
 ```
 
-All invocations modify files in-place by default. Use `-n` (dry run)
-to preview changes to stdout, or `-o <file>` to write to a different
-file (single-file mode only).
+Where the project already declares the plugin, the goal prefix is
+enough: `mvn slb:reformat -Dfile=<path>`.
+
+The plugin requires **Java 25**. On an older JVM Maven refuses it with
+`has unmet prerequisites: Required Java version 25 is not met`; set
+`JAVA_HOME` to a 25 or later JDK.
+
+Other parameters: `minLineLength`, `maxLineLength`, `clauseBreak` and
+`clauseBreakThreshold` tune where breaks fall. The defaults are correct
+for IKE prose; change them only with a reason.
+
+Runs modify files in place unless `dryRun` is set.
 
 #### Why normalize before decomposition
 
@@ -167,14 +164,32 @@ Split the source into topic fragments per `IKE-TOPIC-DECOMPOSITION.md`:
 4. Author each fragment per `IKE-ASCIIDOC-FRAGMENT.md` with index
    terms per `IKE-INDEX.md`.
 
-### Step 4: Index
+### Step 4: Stamp
 
-Register every topic in `topic-registry.yaml` per
-`IKE-TOPIC-REGISTRY.md`:
+Every fragment carries its own catalog record. Stamp each one per
+`IKE-ASCIIDOC-FRAGMENT.md`, in the header that follows its heading:
 
-- Assign domain, topic-id, type, keywords, and summary.
-- Check for redundancy against existing topics in the registry.
-- Resolve any overlaps before proceeding.
+- `:topic-type:`, `:topic-status:`, `:topic-keywords:`
+- `:topic-summary:` — 1–3 sentences, 150–400 characters, indicative
+  mood, per the summary guidelines in `IKE-TOPIC-REGISTRY.md`. This
+  is the field by which a later session decides whether a topic
+  already covers this ground; write it to be searched, not skimmed.
+- `:topic-provenance:` — `ingested` for topics decomposed from a
+  source document, `authored` for topics written directly,
+  `external` for the `ext/` domain.
+- `:topic-related:` and `:topic-scope-note:` for any deliberate
+  overlap found during the redundancy check below; `:topic-notes:`
+  for exceptions such as a size-bound justification.
+
+Do not write an `:topic-id:` attribute or a comment header: the
+literal anchor is the id and the level-1 heading is the title.
+
+Then check for redundancy against the existing corpus, comparing the
+summaries and keywords of the new topics against the registry and
+their index terms against `term-index.yaml`. Resolve every overlap
+before proceeding — either merge the topics, or keep both and record
+the reciprocal `:topic-related:` pair with a `:topic-scope-note:` on
+each saying why the overlap is deliberate.
 
 ### Step 5: Place
 
@@ -185,7 +200,6 @@ Put topic files into the target project's `topics/` module:
 2. Place each `.adoc` fragment in the appropriate domain directory.
 3. Update `topics/src/docs/asciidoc/index.adoc` to include the new
    topics for the HTML preview.
-4. Merge registry entries into `topic-registry.yaml`.
 
 ### Step 6: Assemble
 
@@ -194,10 +208,28 @@ Create or update an assembly in the target project:
 1. If this is a new document, create an assembly module with a
    descriptive name and a POM that depends on `topics`.
 2. Author the assembly `.adoc` file per `IKE-ASSEMBLY.md` with
-   `include::` directives referencing the placed topics.
-3. Add the assembly entry to `topic-registry.yaml` with nested
-   `sections` mirroring the heading hierarchy.
-4. Add the new module to the reactor POM's `<subprojects>`.
+   `include::` directives referencing the placed topics. Its heading
+   structure and include order become the assembly's `sections` in
+   the registry, so the document's organization is the authored
+   artifact — there is nothing further to record.
+3. Add the new module to the reactor POM's `<subprojects>`.
+4. Record the assembly's `description` in
+   `topic-registry-meta.yaml`, along with the `title` and
+   `description` of any new domain. These are the only catalog
+   values no fragment or assembly document supplies.
+
+### Step 6a: Regenerate the registry
+
+Rebuild `topic-registry.yaml` from the placed fragments and assembly
+documents per `IKE-TOPIC-REGISTRY.md` § "The registry is derived, not
+authored," merging in `topic-registry-meta.yaml`.
+
+Never hand-write registry entries. Every field is read from a
+fragment or computed from one, so an entry typed by hand is at best
+a duplicate of what regeneration produces and at worst a claim the
+corpus does not support. If the regenerated registry is missing
+something you expected, the fragment is missing an attribute — fix
+it there and regenerate.
 
 ### Step 7: Validate
 
@@ -211,7 +243,8 @@ mvn clean verify
 - All `xref:` targets resolve.
 - Heading levels render correctly with `leveloffset`.
 - No content from the source document was lost.
-- Registry topic-count matches actual count.
+- The registry was regenerated after the last fragment edit, and
+  regenerating again produces no change.
 - Every new topic appears in the compendium assembly.
 - Every new topic is included in `topics/src/docs/asciidoc/index.adoc`
   (the all-topics preview). This ensures cross-topic `xref:` links
@@ -237,9 +270,9 @@ single topic. See `IKE-TOPIC-DECOMPOSITION.md` § "Dialog Topics."
    substantive discussion per `IKE-INDEX.md`.
 4. **Place**: Put the single `.adoc` file in
    `topics/src/docs/asciidoc/topics/dialog/`.
-5. **Register**: Add the topic entry to `topic-registry.yaml` under
-   the `dialog` domain. Include a `notes` field documenting that this
-   is a dialog topic exempt from size bounds.
+5. **Register**: Give the fragment `:topic-notes:` recording that it
+   is a dialog topic exempt from size bounds, then regenerate the
+   registry. The `dialog` domain follows from the topic id prefix.
 6. **Assemble**: Add the topic to the `dialogs` assembly and to the
    compendium. If a `dialogs` assembly module does not yet exist,
    create one following the assembly module template in `IKE-DOC.md`.
@@ -393,16 +426,20 @@ topics/ext/
 
 #### Step 7: Register
 
-Add the topic to `topic-registry.yaml` under the `ext` domain.
+Stamp the fragment, then regenerate the registry. The `ext` domain
+follows from the topic id prefix.
 
-- Use `status: review` as the ceiling — external topics are never
-  `published` because they are never included in assemblies.
-- Add a `notes` field documenting the content handling strategy
-  that was applied (e.g., `"Fair use summary — no verbatim
-  reproduction."` or `"Near-verbatim — internal collaborator
-  content with implicit permission."`).
-- Add bidirectional `related:` links to any authored topics that
-  reference or were informed by this source.
+- Use `:topic-status: review` as the ceiling — external topics are
+  never `published` because they are never included in assemblies.
+  A published `ext` topic is a validation failure.
+- Give `:topic-notes:` the content handling strategy that was
+  applied (e.g., `Fair use summary — no verbatim reproduction.` or
+  `Near-verbatim — internal collaborator content with implicit
+  permission.`).
+- Add reciprocal `:topic-related:` links to any authored topics that
+  reference or were informed by this source, each with a
+  `:topic-scope-note:`. Reciprocity is checked, so edit both
+  fragments.
 
 #### Step 8: Update index.adoc and validate
 
@@ -469,7 +506,9 @@ Claude should:
 1. Read the target project's `topic-registry.yaml` (if it exists).
 2. Decompose the source document into topics.
 3. Check for redundancy against existing topics.
-4. Place topic files in `topics/src/docs/asciidoc/topics/{domain}/`.
-5. Update the registry.
+4. Stamp each fragment's attribute block per
+   `IKE-ASCIIDOC-FRAGMENT.md`.
+5. Place topic files in `topics/src/docs/asciidoc/topics/{domain}/`.
 6. Create or update the assembly module.
-7. Build and verify.
+7. Regenerate the registry.
+8. Build and verify.

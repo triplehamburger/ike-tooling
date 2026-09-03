@@ -13,42 +13,59 @@ hierarchy.
 Every topic `.adoc` file must follow this structure:
 
 ```asciidoc
-// {topic-id}
-// Topic: {title}
-// Type: {concept|task|reference|dialog}
-// Status: {draft|proposed|review|published|deprecated}
-:topic-id: arch-coord-versioning
+[[arch-coord-versioning]]
+= {Title}
 :topic-type: concept
 :topic-status: draft
 :topic-keywords: versioning, coordinates, STAMP, temporal
+:topic-summary: Describes the coordinate-based versioning pattern where each \
+  component version is identified by module, path and temporal coordinates \
+  within the STAMP model.
+:topic-provenance: ingested
 :topic-scope-note: Covers versioning from the architecture perspective. \
   For version management procedures, see ops-version-migration.
-
-[[arch-coord-versioning]]
-= {Title}
 
 {Content body with index terms per IKE-INDEX.md}
 ```
 
 ### Breakdown
 
-1. **Comment header** (lines 1–4): Human-readable metadata for quick identification when
-   viewing raw files. These are AsciiDoc comments and do not render.
+1. **Anchor** (line 1): A literal inline anchor. It opens the file, immediately precedes the
+   heading, and **is** the topic's identity — no attribute restates it. **Always use a literal
+   string.** Asciidoctor expands attributes for HTML output but does not register
+   attribute-expanded anchors in its xref catalog, so cross-references to an attribute-expanded
+   anchor produce "possible invalid reference" warnings and lose their display text.
 
-2. **Attribute block** (lines 5–9): Machine-readable metadata. These attributes are available
-   to the build pipeline and can be extracted for registry validation.
-
-3. **Anchor** (line 11): A literal inline anchor matching the `topic-id` value. This is the
-   cross-reference target. It must immediately precede the heading. **Always use a literal
-   string** — never `[[{topic-id}]]`. Asciidoctor expands attributes for HTML output but does
-   not register attribute-expanded anchors in its xref catalog, so cross-references to such
-   anchors produce "possible invalid reference" warnings and lose their display text.
-
-4. **Level-1 heading** (line 12): Every fragment starts with a level-1 heading (`=`). The
+2. **Level-1 heading** (line 2): Every fragment starts with a level-1 heading (`=`). The
    assembly controls the actual rendered level via `leveloffset` in the `include::` directive.
+   The heading text **is** the topic's title; no attribute restates it.
 
-5. **Content body** (line 14+): The topic content, with index terms embedded per
-   `IKE-INDEX.md`.
+3. **Attribute block** (line 3 onward): Machine-readable metadata, placed immediately after
+   the heading so that nothing separates the anchor from the title it targets. These attributes
+   are the source from which `topic-registry.yaml` is derived — see `IKE-TOPIC-REGISTRY.md`.
+
+4. **Content body**: The topic content, with index terms embedded per `IKE-INDEX.md`.
+
+### Identity and title are structural, not attributes
+
+A fragment states each of these exactly once:
+
+| Fact     | Where it lives                                        |
+|----------|-------------------------------------------------------|
+| topic id | the literal anchor, `[[arch-coord-versioning]]`        |
+| title    | the level-1 heading, `= Coordinate-Based Versioning`   |
+
+Do not add a `:topic-id:` attribute, and do not open the file with a comment header restating
+the id, title, type or status. Both were removed because they were third and fourth copies of
+facts the file already carries, hand-synced with nothing checking them. Their removal also
+makes two former defect classes unrepresentable rather than merely detectable: with no
+`:topic-id:` attribute there is nothing for an anchor to disagree with, and no `{topic-id}`
+reference available to write into an anchor by mistake.
+
+Attributes are metadata only — never reference them from body text. In an assembly every
+included fragment sets the same attribute names in one document scope, so a reference like
+`{topic-summary}` resolves to whichever topic was included last. Tooling that reads these
+attributes reads the fragment file directly, not the assembled document.
 
 ## Heading Rules
 
@@ -100,25 +117,61 @@ labels for empty sections or as organizational placeholders.
 
 ### Include in Fragments
 
+Every fragment carries these:
+
 | Attribute            | Purpose                          | Example                                |
 |----------------------|----------------------------------|----------------------------------------|
-| `:topic-id:`         | Unique identifier                | `arch-coord-versioning`                |
 | `:topic-type:`       | concept, task, reference, or dialog | `concept`                           |
 | `:topic-status:`     | Lifecycle status                 | `published`                            |
 | `:topic-keywords:`   | Comma-separated keyword list     | `versioning, coordinates, STAMP`       |
-| `:topic-scope-note:` | Optional. Clarifies this topic's angle when it intentionally overlaps with a related topic. References the related topic-id. | `Covers classifiers from the authoring perspective. For classifier architecture, see arch-dl-classifier.` |
+| `:topic-summary:`    | 1–3 sentences, 150–400 characters, indicative mood. The primary search target and the signal by which content overlap is detected across sessions. Authored per the summary guidelines in `IKE-TOPIC-REGISTRY.md`; fold long values with a trailing `\`. | `Describes the coordinate-based versioning pattern where each component version is identified by module, path and temporal coordinates within the STAMP model.` |
+| `:topic-provenance:` | `authored`, `ingested`, or `external` | `ingested`                        |
+
+And these when they apply:
+
+| Attribute            | Purpose                          | Example                                |
+|----------------------|----------------------------------|----------------------------------------|
+| `:topic-related:`    | Comma-separated topic ids covering similar subject matter from a different angle. Must be reciprocated: if A lists B, B lists A. | `arch-dl-classifier, term-dl-axioms` |
+| `:topic-scope-note:` | **Required whenever `:topic-related:` is non-empty.** States why the overlap is deliberate and what this topic's angle is. | `Covers classifiers from the authoring perspective. For classifier architecture, see arch-dl-classifier.` |
+| `:topic-supersedes:` | Topic id this topic replaces. Set on the replacement, not the deprecated topic. | `arch-versioning-legacy`               |
+| `:topic-notes:`      | Free-text note for authors and tooling. Use for exceptions — a size-bound justification, an unresolved cross-reference. | `Exceeds 5000 characters — indivisible reference table.` |
+
+### Why these live in the fragment
+
+`:topic-summary:`, `:topic-related:`, `:topic-supersedes:` and `:topic-notes:` are the fields
+that cannot be recovered by reading the topic's content. A summary describes the topic, but the
+other three are decisions somebody made *about* it — which topic it overlaps, which it retires,
+which rule it is exempt from. No parser reconstructs a decision from the prose it was made
+about, so the fragment has to state them.
+
+Everything a parser *can* recover is not authored here: id, title, file path, domain, and
+`dependencies` (defined as the topics this one cross-references, so read the `xref:` macros).
+See `IKE-TOPIC-REGISTRY.md` for the full derivation table.
+
+`:topic-summary:` may be derived from the topic's opening paragraph, which is already required
+to be self-contained and context-setting. An authored value always wins. Author one when the
+opening paragraph reads well as prose but works poorly as a search target — and note that an
+authored summary identical to what would be derived is a line that can be deleted.
+
+`:topic-type:` stays authored. Structure hints at it — `.Procedure` blocks suggest a task, a
+table-dominant body suggests a reference — but a concept topic containing one table is still a
+concept topic, and no heuristic distinguishes them. It is one line from a closed set of four
+values.
 
 ### External Source Attributes (ext/ domain only)
 
 These attributes are required on all topics in the `ext/` domain and must not appear on
-authored topics. See `IKE-INGEST.md` § "External Source Ingestion" for the full workflow,
-including the mandatory confirmation step and content handling matrix.
+authored topics. They record *rights*, which is distinct from origin: `:topic-provenance:`
+applies to every topic and says where content came from, while these two say what may be done
+with it. See `IKE-INGEST.md` § "External Source Ingestion" for the full workflow, including the
+mandatory confirmation step and content handling matrix.
 
 | Attribute              | Purpose                                    | Example                                               |
 |------------------------|--------------------------------------------|-------------------------------------------------------|
-| `:topic-provenance:`   | Always `external` for ingested sources     | `external`                                            |
 | `:topic-citation:`     | Full bibliographic citation                | `Hatchett PL. Open Questions PLH Answers. 2026-03-11. Unpublished memorandum.` |
 | `:topic-license:`      | Rights/permissions note                    | `Internal use only — not for publication.`            |
+
+On an `ext/` topic, `:topic-provenance:` is always `external`.
 
 ### Never Include in Fragments
 
@@ -435,8 +488,9 @@ controlled vocabulary.
 ## Things to Avoid
 
 - **Document-level attributes**: `:doctype:`, `:toc:`, `:sectnums:`, etc.
-- **Preamble text before the title heading**: The anchor and title must come first (after the
-  attribute block).
+- **Anything before the anchor**: The anchor opens the file, the heading follows it, and the
+  attribute block follows the heading. No comment header, no attributes, no preamble text
+  ahead of the anchor.
 - **Hard-coded heading levels**: Never use `===` as the top heading in a fragment to "pre-adjust"
   for assembly context. Always use `=` and let `leveloffset` do the work.
 - **Inline HTML**: Stick to AsciiDoc markup.
@@ -445,6 +499,8 @@ controlled vocabulary.
 - **Conditional logic for content within a single topic**: If content varies by audience or
   context, create separate topics rather than using `ifdef` blocks within the body. Reserve
   `ifdef` for cross-reference handling as described above.
-- **Attribute references in anchors**: Never write `[[{topic-id}]]`. Asciidoctor's xref catalog
-  does not resolve attribute-expanded anchors, so `xref:` links targeting them produce warnings
-  and lose display text. Always use the literal topic ID: `[[arch-coord-versioning]]`.
+- **Attribute references in anchors**: Never write an anchor as an attribute reference, e.g.
+  `[[{topic-id}]]`. Asciidoctor's xref catalog does not resolve attribute-expanded anchors, so
+  `xref:` links targeting them produce warnings and lose display text. Always use the literal
+  topic ID: `[[arch-coord-versioning]]`. Since the id is no longer carried as an attribute,
+  there is nothing to expand — this is now a rule against reintroducing one.

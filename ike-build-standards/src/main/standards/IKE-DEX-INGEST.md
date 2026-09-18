@@ -42,37 +42,88 @@ clearance letters, De Novo or PMA decisions).
 | File name | `{slug}.adoc` | `DeXRecord_{510k-number}.adoc`, e.g. `DeXRecord_K031739.adoc` |
 | Title | Descriptive | `DeXRecord_{510k-number}` |
 | Topic ID | `ext-{slug}` | `dex-{510k-number lowercase}`, e.g. `dex-k031739` (registry requires lowercase kebab-case; derived from the file name) |
+| Layout | Fragment conventions | **Mirrors the PDF.** Title block, lettered headings with their punctuation, numbered and lettered sub-fields as lists, tables in the source's shape |
 | Editorial context paragraph | Added for navigation | **Not added.** The registry `summary` is the abstract |
 | Index terms | 3–10 | 5–15, at first substantive mention |
 | Uniqueness | Redundancy check against registry | **One record per 510(k) number.** Existing `dex-{number}`: stop and ask before replacing |
 | `index.adoc` heading | `== External Sources: Regulatory` | `== DeX Records` |
 | Citation | Bibliographic | Same, plus the `accessdata.fda.gov` PDF URL |
 
-### Section map
+### Layout: mirror the PDF
 
-Preserve the FDA template's lettered sections in source order, with
-letters and titles verbatim, as level-2 headings. Numbered sub-fields
-become `[discrete]` level-3 headings or labeled list items. Do not
-merge, reorder, rename, or add sections. The Device and Instrument
-Template carries A–P:
+The record should read like the PDF. Keep the source's wording,
+punctuation, capitalisation, emphasis, and ordering; use AsciiDoc only
+to reproduce its shape.
 
-```
-A. 510(k) Number                         I. Substantial Equivalence Information
-B. Analyte                               J. Standard/Guidance Document Referenced
-C. Type of Test                          K. Test Principle
-D. Applicant                             L. Performance Characteristics
-E. Proprietary and Established Names     M. Instrument Name
-F. Regulatory Information                N. System Descriptions
-G. Intended Use                          O. Other Supportive Instrument Performance
-H. Device Description                    P. Conclusion
-```
+- **Title block**: the centred three-line heading from page 1, as one
+  centred paragraph of bold lines joined by hard breaks:
 
-Other templates carry a subset or variant; keep whatever the source has.
-Tables are reproduced as AsciiDoc tables with the source's column
-headings. Checkbox forms render as `Yes (X) or No ( )` with a comment
-noting the original marking. Fix PDF extraction artifacts (broken
-words, glyph substitutions, `Page 2 of 8` headers) only; never correct
-FDA wording, spelling, or grammar.
+  ```asciidoc
+  [.text-center]
+  *510(k) SUBSTANTIAL EQUIVALENCE DETERMINATION* +
+  *DECISION SUMMARY* +
+  *DEVICE AND INSTRUMENT TEMPLATE*
+  ```
+
+- **Lettered sections (A–P)**: level-2 headings, in source order, letter
+  and title verbatim including the trailing colon or period the source
+  uses (`== A. 510(k) Number:`, `== H. Device Description`,
+  `== O. ... Decision Summary.`). Never merge, reorder, rename, or add.
+  The Device and Instrument Template carries:
+
+  ```
+  A. 510(k) Number                         I. Substantial Equivalence Information
+  B. Analyte                               J. Standard/Guidance Document Referenced
+  C. Type of Test                          K. Test Principle
+  D. Applicant                             L. Performance Characteristics
+  E. Proprietary and Established Names     M. Instrument Name
+  F. Regulatory Information                N. System Descriptions
+  G. Intended Use                          O. Other Supportive Instrument Performance
+  H. Device Description                    P. Conclusion
+  ```
+
+  Other templates carry a subset or variant; keep whatever the source has.
+
+- **Numbered sub-fields (1., 2., ...)**: an ordered list. The label is
+  underlined as in the source, followed by a hard break, then the value:
+
+  ```asciidoc
+  . [.underline]#Regulation section:# +
+  21 CFR §862.1215
+  ```
+
+  A blank field keeps its label and nothing else. Further paragraphs
+  and tables attach with `+` list continuation.
+
+- **Lettered sub-sub-fields (a., b., ...)**: a nested `[loweralpha]`
+  list with the label in italics:
+
+  ```asciidoc
+  . [.underline]#Analytical performance:#
+  [loweralpha]
+  .. _Precision/Reproducibility:_ +
+  Three levels of plasma controls ...
+  ```
+
+- **Tables**: one AsciiDoc table per source table, same columns and
+  headings, numeric columns centred (`^`). A source table with band
+  rows (Similarities / Differences) is one table with spanning header
+  cells (`3+^h| Similarities`), not two tables. A caption above a
+  source table is a centred bold paragraph, not a `.Title`, so no
+  `Table N.` prefix is added. Row-spanning cells use `.3+|`.
+
+- **Forms**: a checkbox line is reproduced with a passthrough,
+  `Yes +____X____+ or No +________+`, with a comment noting which box
+  the source marks.
+
+- **Emphasis**: keep the source's italics (guidance titles, _in vitro_).
+
+- **Cleanup**: fix PDF extraction artifacts only (broken words, glyph
+  substitutions, `Page 2 of 8` headers). Never correct FDA wording,
+  spelling, or grammar.
+
+- **Index terms**: inside the paragraph or list item they describe,
+  never on the line before a list item (`IKE-INDEX.md`).
 
 ### Header block
 
@@ -93,9 +144,16 @@ FDA wording, spelling, or grammar.
 [[dex-k031739]]
 = DeXRecord_K031739
 
-// Editorial: all content below is verbatim from the FDA decision summary.
+// Editorial: all content below is verbatim from the FDA decision summary; layout mirrors the PDF.
 
-== A. 510(k) Number
+[.text-center]
+*510(k) SUBSTANTIAL EQUIVALENCE DETERMINATION* +
+*DECISION SUMMARY* +
+*DEVICE AND INSTRUMENT TEMPLATE*
+
+== A. 510(k) Number:
+
+K031739
 ```
 
 ### Registry domain
@@ -139,6 +197,8 @@ Pre-fill the `IKE-INGEST.md` mandatory confirmation:
 ### Added validation checks
 
 - Every lettered section of the source appears once, in order.
+- Rendered output reads in the same order and shape as the PDF:
+  title block, sub-field numbering, table bands and captions.
 - No page headers, footers, or extraction artifacts remain.
 - File name, title, and topic ID agree with the 510(k) number.
 

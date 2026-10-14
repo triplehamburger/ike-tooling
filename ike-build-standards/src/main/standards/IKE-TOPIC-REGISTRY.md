@@ -35,15 +35,25 @@ run the goal, confirm zero findings, then delete the hand-kept files.
 
 ## Generating the Registry
 
+Run the registry's entry point, `TopicRegistryMain`, with `exec:java` from the `ike-docs`
+reactor root. `--base` is the doc project's `topics` module, given as an absolute path;
+the other paths resolve against it.
+
 ```bash
-mvn idoc:topic-registry -pl topics                         # full scan of src/docs/asciidoc
-mvn idoc:topic-registry -pl topics \
-  -Dike.topic-registry.add=src/docs/asciidoc/topics/{domain}/{topic}.adoc   # add files, no rescan
+# full scan of src/docs/asciidoc
+mvn exec:java -pl ike-doc-maven-plugin \
+  -Dexec.mainClass=network.ike.docs.plugin.registry.TopicRegistryMain \
+  -Dexec.args="--base /path/to/project/topics"
+
+# add files, no rescan
+mvn exec:java -pl ike-doc-maven-plugin \
+  -Dexec.mainClass=network.ike.docs.plugin.registry.TopicRegistryMain \
+  -Dexec.args="--base /path/to/project/topics --add src/docs/asciidoc/topics/{domain}/{topic}.adoc"
 ```
 
-- The goal defaults to the `validate` phase, reads sources only, and writes only under
-  `target/`. It never edits a source file.
-- `-Dike.topic-registry.add` takes comma-separated paths relative to the module directory.
+- The run reads sources only and writes only `target/topic-registry.yaml` under `--base`.
+  It never edits a source file.
+- `--add` takes comma-separated paths relative to `--base`.
   Each file is parsed alone and merged into the existing registry; an entry for the same file
   is replaced, so re-adding is safe. When no registry exists yet, the full scan runs instead.
 - `add` does not notice deleted or moved files. After any delete or move, run the full scan;
@@ -51,8 +61,9 @@ mvn idoc:topic-registry -pl topics \
 - Findings are warnings: they are printed to the log and listed in the registry's `findings`,
   and they do not fail the build. Fix each one in the source file and run again. Work is not
   done until the run reports `0 findings`.
-- Other options: `-Dike.topic-registry.roots=a,b` (scan other directories),
-  `-Dike.topic-registry.output=<file>` (write elsewhere), `-Dike.skip.topic-registry=true`.
+- Other options: `--roots a,b` (scan other directories), `--output <file>` (write
+  elsewhere), `--root-file <file>` (only that file and what it includes), and
+  `--max-files <n>` (the most `.adoc` files one root may hold, default 5000).
 
 ## Schema
 
@@ -239,10 +250,10 @@ relationship between coordinates and the version graph used for dependency resol
 
 ### When to Run
 
-Run `idoc:topic-registry` whenever:
+Run the registry (see "Generating the Registry") whenever:
 
 - A topic is created, modified, split, merged, moved, or deprecated (full scan after any
-  move, delete, split, or merge; `add` is enough for new or edited files).
+  move, delete, split, or merge; `--add` is enough for new or edited files).
 - A topic's status or header metadata changes.
 - An assembly's include list changes.
 - A decomposition or ingestion session produces new topics.
@@ -253,7 +264,7 @@ registry automatically.
 ### Who Updates
 
 - **Claude (chat or Claude Code)**: writes and updates topic headers as part of decomposition,
-  ingestion, or topic creation, then runs the goal and fixes every finding. Claude never
+  ingestion, or topic creation, then runs the registry and fixes every finding. Claude never
   produces registry YAML fragments and never edits a registry file.
 - **Authors**: review header changes in the topic files and commit them. The registry itself
   is never committed.
@@ -313,7 +324,7 @@ but before packaging.
 
 ### Providing Context
 
-At the start of a session involving topic work, run the goal and give Claude
+At the start of a session involving topic work, run the registry and give Claude
 `target/topic-registry.yaml` (Claude Code reads it directly), plus the `term-index.yaml` file
 if available and if the session involves integration or redundancy checking.
 
@@ -338,6 +349,6 @@ After any topic creation or modification:
 
 > Update the topic headers and rebuild the topic registry.
 
-Claude edits the `:topic-*:` headers, runs `idoc:topic-registry` (with `add` for new or edited
+Claude edits the `:topic-*:` headers, runs the registry (with `--add` for new or edited
 files, a full scan after moves or deletes), and fixes findings until the run reports
 `0 findings`.

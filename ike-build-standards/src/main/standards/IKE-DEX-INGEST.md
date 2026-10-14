@@ -171,8 +171,9 @@ header block above carries all registry metadata (`:topic-summary:`,
 `:topic-related:`, `:topic-notes:`). After placing the file, add it:
 
 ```bash
-mvn -B idoc:topic-registry -pl topics \
-  -Dike.topic-registry.add=src/docs/asciidoc/topics/dex/DeXRecord_K031739.adoc
+mvn exec:java -pl ike-doc-maven-plugin \
+  -Dexec.mainClass=network.ike.docs.plugin.registry.TopicRegistryMain \
+  -Dexec.args="--base /path/to/project/topics --add src/docs/asciidoc/topics/dex/DeXRecord_K031739.adoc"
 ```
 
 Decomposed topics for the same 510(k) number may coexist. Link them

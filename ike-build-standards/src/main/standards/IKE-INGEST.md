@@ -174,7 +174,8 @@ registry is generated from these headers; never write registry YAML.
 
 - Assign domain prefix, `:topic-id:`, `:topic-type:`,
   `:topic-keywords:`, and `:topic-summary:`.
-- Run `mvn idoc:topic-registry -pl topics` and read
+- Run a full topic registry scan (`exec:java`, per `IKE-TOPIC-REGISTRY.md`
+  § "Generating the Registry") and read
   `topics/target/topic-registry.yaml` to check for redundancy
   against existing topics.
 - Resolve any overlaps before proceeding.
@@ -191,8 +192,9 @@ Put topic files into the target project's `topics/` module:
 4. Add the placed files to the topic registry:
 
    ```bash
-   mvn -B idoc:topic-registry -pl topics \
-     -Dike.topic-registry.add=src/docs/asciidoc/topics/{domain}/{topic}.adoc   # comma-separated for several
+   mvn exec:java -pl ike-doc-maven-plugin \
+     -Dexec.mainClass=network.ike.docs.plugin.registry.TopicRegistryMain \
+     -Dexec.args="--base /path/to/project/topics --add src/docs/asciidoc/topics/{domain}/{topic}.adoc"   # comma-separated for several
    ```
 
 ### Step 6: Assemble
@@ -217,7 +219,7 @@ mvn clean verify
 - All `xref:` targets resolve.
 - Heading levels render correctly with `leveloffset`.
 - No content from the source document was lost.
-- A full `mvn -B idoc:topic-registry -pl topics` run reports
+- A full topic registry scan (`exec:java`) reports
   `0 findings`, and every new topic appears in
   `topics/target/topic-registry.yaml` at the path where it was placed.
 - Every new topic appears in the compendium assembly.
@@ -421,8 +423,9 @@ Then add the placed file, and any authored topic whose header you
 changed, to the topic registry:
 
 ```bash
-mvn -B idoc:topic-registry -pl topics \
-  -Dike.topic-registry.add=src/docs/asciidoc/topics/ext/{type}/{topic}.adoc
+mvn exec:java -pl ike-doc-maven-plugin \
+  -Dexec.mainClass=network.ike.docs.plugin.registry.TopicRegistryMain \
+  -Dexec.args="--base /path/to/project/topics --add src/docs/asciidoc/topics/ext/{type}/{topic}.adoc"
 ```
 
 #### Step 8: Update index.adoc and validate
@@ -489,13 +492,13 @@ Claude should:
 
 1. Run the 510(k) check. If the source is a decision summary,
    switch to `IKE-DEX-INGEST.md` and say so.
-2. Run `mvn -B idoc:topic-registry -pl topics` in the target project
+2. Run a full topic registry scan with `exec:java` from the `ike-docs`
+   reactor root, `--base` set to the target project's `topics` module,
    and read `topics/target/topic-registry.yaml`.
 3. Decompose the source document into topics.
 4. Check for redundancy against existing topics.
 5. Place topic files in `topics/src/docs/asciidoc/topics/{domain}/`.
-6. Add the placed files to the topic registry with
-   `-Dike.topic-registry.add`.
+6. Add the placed files to the topic registry with `--add`.
 7. Create or update the assembly module.
 8. Build and verify, finishing with a full topic registry scan that
    reports `0 findings`.
